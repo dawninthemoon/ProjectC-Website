@@ -50,3 +50,4 @@ desktop.ini
 *.log
 *.tmp
 *.swp
+/generated/prisma
