@@ -1,0 +1,19 @@
+services:
+  dev:
+    image: node:24-bookworm
+    working_dir: /workspace/backend
+    command: sleep infinity
+
+    environment:
+      DATABASE_URL: postgresql://projectc:projectc_dev_password@postgres:5432/projectc_analytics?schema=public
+
+    volumes:
+      - .:/workspace
+      - backend_node_modules:/workspace/backend/node_modules
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  backend_node_modules:
