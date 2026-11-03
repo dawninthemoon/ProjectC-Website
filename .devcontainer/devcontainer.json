@@ -1,28 +1,11 @@
 {
-    "name": "ProjectC Website Development",
-    "dockerComposeFile": [
-        "../docker-compose.yml",
-        "../docker-compose.dev.yml"
-    ],
-    "service": "dev",
-    "runServices": [
-        "postgres",
-        "dev"
-    ],
-    "workspaceFolder": "/workspace",
-    "shutdownAction": "stopCompose",
-    "forwardPorts": [
-        3000,
-        5173
-    ],
-    "postCreateCommand": "cd backend && npm ci && npx prisma generate",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "dbaeumer.vscode-eslint",
-                "esbenp.prettier-vscode",
-                "Prisma.prisma"
-            ]
-        }
-    }
+  "name": "ProjectC ASP.NET Core Development",
+  "dockerComposeFile": ["../docker-compose.yml", "../docker-compose.dev.yml"],
+  "service": "dev",
+  "runServices": ["postgres", "dev"],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8080],
+  "postCreateCommand": "dotnet tool restore && dotnet restore ProjectC.sln",
+  "customizations": { "vscode": { "extensions": ["ms-dotnettools.csdevkit"] } }
 }

@@ -51,3 +51,11 @@ desktop.ini
 *.tmp
 *.swp
 /generated/prisma
+
+# ASP.NET Core
+**/bin/
+**/obj/
+TestResults/
+*.user
+*.suo
+**/appsettings.*.local.json
