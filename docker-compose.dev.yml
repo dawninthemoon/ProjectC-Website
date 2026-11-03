@@ -1,19 +1,18 @@
 services:
   dev:
-    image: node:24-bookworm
-    working_dir: /workspace/backend
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /workspace
     command: sleep infinity
-
     environment:
-      DATABASE_URL: postgresql://projectc:projectc_dev_password@postgres:5432/projectc_analytics?schema=public
-
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__GameDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-projectc_analytics};Username=${POSTGRES_USER:-projectc};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
     volumes:
       - .:/workspace
-      - backend_node_modules:/workspace/backend/node_modules
-
+      - nuget_cache:/root/.nuget/packages
     depends_on:
       postgres:
         condition: service_healthy
-
 volumes:
-  backend_node_modules:
+  nuget_cache:

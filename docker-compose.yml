@@ -4,18 +4,42 @@ services:
     container_name: projectc-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: projectc
-      POSTGRES_PASSWORD: projectc_dev_password
-      POSTGRES_DB: projectc_analytics
+      POSTGRES_USER: ${POSTGRES_USER:-projectc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-projectc_analytics}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U projectc -d projectc_analytics"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: api/ProjectC.Api/Dockerfile
+    command: ["--migrate"]
+    environment: &api-environment
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__GameDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-projectc_analytics};Username=${POSTGRES_USER:-projectc};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: api/ProjectC.Api/Dockerfile
+    environment: *api-environment
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
