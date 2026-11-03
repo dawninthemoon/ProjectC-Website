@@ -28,10 +28,11 @@ public sealed class DeckCard
 
 public sealed class RankProfile
 {
+    public Guid? ActivePromotionSeriesId { get; set; }
     public Guid PlayerId { get; set; }
     public int Mmr { get; set; } = 1000;
-    public string Tier { get; set; } = "Unranked";
-    public int Division { get; set; }
+    public string Tier { get; set; } = "Bronze";
+    public int Division { get; set; } = 5;
     public int Rp { get; set; }
     public int WinStreak { get; set; }
     public string PromotionStatus { get; set; } = "None";
@@ -49,12 +50,35 @@ public sealed class PromotionGame
 
 public sealed class MatchResult
 {
+    public string? SubmissionHash { get; set; }
+    public string? RankChangesJson { get; set; }
     // Battle Server supplies this stable ID. The primary key makes retries idempotent.
     public Guid MatchId { get; set; }
     public Guid? WinnerPlayerId { get; set; }
     public DateTimeOffset EndedAt { get; set; }
     public string EndReason { get; set; } = "";
     public List<MatchParticipant> Participants { get; set; } = [];
+}
+
+public sealed class RefreshSession
+{
+    public string TokenHash { get; set; } = "";
+    public Guid PlayerId { get; set; }
+    public Guid FamilyId { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? RevokedAt { get; set; }
+}
+
+// Immutable server-issued deck selection. No FK to a mutable deck.
+public sealed class BattleDeckSnapshot
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid PlayerId { get; set; }
+    public Guid DeckId { get; set; }
+    public string DeckName { get; set; } = "";
+    public string CatalogVersion { get; set; } = "";
+    public string CardsJson { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public sealed class MatchParticipant

@@ -30,6 +30,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:GameDatabase", connection);
         builder.UseSetting("Jwt:SigningKey", TestKey);
+        builder.UseSetting("Battle:ApiKey", "battle-integration-tests-only-key-1234567890");
+        builder.UseSetting("RateLimits:GuestPermitLimit", "1000");
     }
     public async Task InitializeAsync()
     {
@@ -41,7 +43,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public new Task DisposeAsync() => base.DisposeAsync().AsTask();
 }
 
-public sealed class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
+public sealed partial class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     private async Task<(HttpClient Client, TokenResponse Token)> Guest()
     {
@@ -61,6 +63,8 @@ public sealed class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var (client, token) = await Guest();
         Assert.NotEqual(Guid.Empty, token.User.PlayerId);
         Assert.True(token.ExpiresAt > DateTimeOffset.UtcNow);
+        Assert.NotNull(token.RefreshToken);
+        Assert.True(token.RefreshExpiresAt > token.ExpiresAt);
         var me = await client.GetFromJsonAsync<UserResponse>("/api/users/me");
         Assert.Equal(token.User.PlayerId, me!.PlayerId);
         Assert.Equal(token.User.DisplayName, me.DisplayName);
@@ -136,6 +140,9 @@ public sealed class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
                 reason == "signature" ? new string('x', 64) : ApiFactory.TestKey)), SecurityAlgorithms.HmacSha256));
         client.DefaultRequestHeaders.Authorization = new("Bearer", new JwtSecurityTokenHandler().WriteToken(jwt));
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/users/me")).StatusCode);
+        using var battle = BattleClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await battle.PostAsJsonAsync("/api/internal/battle/players/verify",
+            new { accessToken = new JwtSecurityTokenHandler().WriteToken(jwt) })).StatusCode);
         }
     }
 

@@ -9,11 +9,28 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<RankProfile> Ranks => Set<RankProfile>();
     public DbSet<MatchResult> Matches => Set<MatchResult>();
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
+    public DbSet<BattleDeckSnapshot> BattleDeckSnapshots => Set<BattleDeckSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
         // Own schema avoids collisions with the existing Prisma analytics tables.
         model.HasDefaultSchema("game");
+        model.Entity<RefreshSession>(e =>
+        {
+            e.HasKey(x => x.TokenHash);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.FamilyId);
+            e.HasIndex(x => x.ExpiresAt);
+            e.HasOne<Player>().WithMany().HasForeignKey(x => x.PlayerId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<BattleDeckSnapshot>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DeckName).HasMaxLength(64);
+            e.Property(x => x.CatalogVersion).HasMaxLength(128);
+            e.HasOne<Player>().WithMany().HasForeignKey(x => x.PlayerId).OnDelete(DeleteBehavior.Restrict);
+        });
         model.Entity<Player>(e =>
         {
             e.HasKey(x => x.Id);

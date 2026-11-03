@@ -20,15 +20,16 @@ public static class GameEndpoints
     public static void MapGameEndpoints(this WebApplication app)
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-        app.MapPost("/api/auth/guest", async (GuestRequest request, GameDbContext db, TokenService tokens, CancellationToken ct) =>
+        app.MapPost("/api/auth/guest", async (GuestRequest request, GameDbContext db, RefreshTokenService tokens, CancellationToken ct) =>
         {
             var name = request.DisplayName?.Trim() ?? "Guest";
             if (name.Length is < 1 or > 32)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["displayName"] = ["표시 이름은 1~32자여야 합니다."] });
             var player = new Player { DisplayName = name };
             db.Players.Add(player);
+            var response = tokens.Issue(player);
             await db.SaveChangesAsync(ct);
-            return Results.Ok(tokens.Issue(player));
+            return Results.Ok(response);
         }).RequireRateLimiting("guest");
 
         var api = app.MapGroup("/api").RequireAuthorization();
@@ -44,7 +45,7 @@ public static class GameEndpoints
                 .SingleAsync(r => r.PlayerId == PlayerId(user), ct);
             return Results.Ok(new
             {
-                rank.Mmr, rank.Tier, rank.Division, rank.Rp, rank.WinStreak, rank.PromotionStatus,
+                rank.Mmr, rank.Tier, rank.Division, rank.Rp, rank.WinStreak, rank.PromotionStatus, rank.ActivePromotionSeriesId,
                 promotionGames = rank.PromotionGames.OrderBy(g => g.SeriesId).ThenBy(g => g.GameNumber)
                     .Select(g => new { g.SeriesId, g.GameNumber, g.Won })
             });

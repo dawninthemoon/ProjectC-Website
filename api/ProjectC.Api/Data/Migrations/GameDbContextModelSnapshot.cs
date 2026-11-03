@@ -23,6 +23,42 @@ namespace ProjectC.Api.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProjectC.Api.Domain.BattleDeckSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CardsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CatalogVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeckId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeckName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("BattleDeckSnapshots", "game");
+                });
+
             modelBuilder.Entity("ProjectC.Api.Domain.Deck", b =>
                 {
                     b.Property<Guid>("Id")
@@ -137,6 +173,12 @@ namespace ProjectC.Api.Data.Migrations
                     b.Property<DateTimeOffset>("EndedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RankChangesJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubmissionHash")
+                        .HasColumnType("text");
+
                     b.Property<Guid?>("WinnerPlayerId")
                         .HasColumnType("uuid");
 
@@ -193,6 +235,9 @@ namespace ProjectC.Api.Data.Migrations
                     b.Property<Guid>("PlayerId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ActivePromotionSeriesId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Division")
                         .HasColumnType("integer");
 
@@ -221,6 +266,44 @@ namespace ProjectC.Api.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_Rank_Nonnegative", "\"Division\" >= 0 AND \"Rp\" >= 0 AND \"WinStreak\" >= 0");
                         });
+                });
+
+            modelBuilder.Entity("ProjectC.Api.Domain.RefreshSession", b =>
+                {
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TokenHash");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("FamilyId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("RefreshSessions", "game");
+                });
+
+            modelBuilder.Entity("ProjectC.Api.Domain.BattleDeckSnapshot", b =>
+                {
+                    b.HasOne("ProjectC.Api.Domain.Player", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ProjectC.Api.Domain.Deck", b =>
@@ -288,6 +371,15 @@ namespace ProjectC.Api.Data.Migrations
                         .WithOne("Rank")
                         .HasForeignKey("ProjectC.Api.Domain.RankProfile", "PlayerId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ProjectC.Api.Domain.RefreshSession", b =>
+                {
+                    b.HasOne("ProjectC.Api.Domain.Player", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

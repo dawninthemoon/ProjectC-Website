@@ -40,4 +40,8 @@ public sealed class TokenService(JwtSettings settings, TimeProvider clock)
 }
 
 public sealed record UserResponse(Guid PlayerId, string DisplayName, DateTimeOffset CreatedAt);
-public sealed record TokenResponse(string AccessToken, string TokenType, DateTimeOffset ExpiresAt, UserResponse User);
+public sealed record TokenResponse(string AccessToken, string TokenType, DateTimeOffset ExpiresAt, UserResponse User)
+{
+    public string? RefreshToken { get; init; }
+    public DateTimeOffset? RefreshExpiresAt { get; init; }
+}

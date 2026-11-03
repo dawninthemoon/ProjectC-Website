@@ -8,10 +8,21 @@ using ProjectC.Api.Auth;
 using ProjectC.Api.Data;
 using ProjectC.Api.Decks;
 using ProjectC.Api.Endpoints;
+using ProjectC.Api.Ranking;
+using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new();
 jwt.Validate();
+var battle = builder.Configuration.GetSection("Battle").Get<BattleSettings>() ?? new();
+battle.Validate();
+if (battle.ApiKey == jwt.SigningKey) throw new InvalidOperationException("Battle and JWT keys must be different.");
+var refresh = builder.Configuration.GetSection("Refresh").Get<RefreshSettings>() ?? new();
+if (refresh.LifetimeDays is < 1 or > 365) throw new InvalidOperationException("Refresh:LifetimeDays must be 1..365.");
+builder.Services.AddSingleton(battle);
+builder.Services.AddSingleton(refresh);
+builder.Services.AddScoped<RefreshTokenService>();
+builder.Services.AddSingleton<RankCalculator>();
 var connection = builder.Configuration.GetConnectionString("GameDatabase");
 if (string.IsNullOrWhiteSpace(connection))
     throw new InvalidOperationException("ConnectionStrings:GameDatabase is required.");
@@ -50,14 +61,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
                 context.Fail("Unknown player.");
         }
     };
-});
-builder.Services.AddAuthorization();
+}).AddScheme<AuthenticationSchemeOptions, BattleAuthenticationHandler>(BattleAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization(o => o.AddPolicy("BattleServer", p =>
+    p.AddAuthenticationSchemes(BattleAuthenticationHandler.SchemeName).RequireAuthenticatedUser()));
 builder.Services.AddRateLimiter(o =>
 {
+    var guestLimit = builder.Configuration.GetValue("RateLimits:GuestPermitLimit", 10);
+    if (guestLimit < 1) throw new InvalidOperationException("RateLimits:GuestPermitLimit must be positive.");
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.AddPolicy("guest", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = guestLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("refresh", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 var app = builder.Build();
 app.UseExceptionHandler();
@@ -65,6 +82,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapGameEndpoints();
+app.MapBattleEndpoints();
+app.MapRefreshEndpoints();
 // Migrations are an explicit deployment step, never an incidental startup side effect.
 if (args.Contains("--migrate"))
 {

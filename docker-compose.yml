@@ -26,6 +26,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__GameDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-projectc_analytics};Username=${POSTGRES_USER:-projectc};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      Battle__ApiKey: ${BATTLE_API_KEY:?Set BATTLE_API_KEY in .env}
+      Refresh__LifetimeDays: ${REFRESH_LIFETIME_DAYS:-30}
     depends_on:
       postgres:
         condition: service_healthy

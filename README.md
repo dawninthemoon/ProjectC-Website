@@ -1,7 +1,10 @@
 # ProjectC Website API
 
-Unity 클라이언트와 향후 C++ Battle Server가 사용할 영속 데이터 API입니다.
+Unity 클라이언트와 C++ Battle Server가 사용할 영속 데이터 API입니다.
 ASP.NET Core 10, EF Core 10, PostgreSQL 17, JWT Bearer 인증을 사용합니다.
+
+Battle Server 연동·랭크 계산·Refresh Token의 전체 계약과 수동 배포 절차는
+[Battle Server API 문서](docs/battle-server-api.md)를 참조하세요. 운영 배포와 DB 변경은 수동 작업입니다.
 
 ## 기존 저장소 조사와 구조
 
@@ -19,6 +22,7 @@ api/
     Decks/                교체 가능한 ICardCatalog와 덱 검증
     Domain/               사용자·덱·랭크·매치 모델
     Endpoints/            API와 오류 처리
+    Ranking/              독립적인 MMR/RP·승격전 계산
     Dockerfile
   ProjectC.Api.Tests/     실제 PostgreSQL을 사용하는 HTTP/DB 통합 테스트
 backend/                  기존 NestJS 서버 (별도 보존)
@@ -32,7 +36,7 @@ docker-compose.yml        DB + 일회성 migration + API
 Docker Engine과 Compose v2가 필요합니다. 아래 명령은 저장소 루트에서 실행합니다.
 
 1. `.env.example`을 `.env`로 복사합니다. 기존 `.env`가 있다면 보존하고 필요한 항목을 추가합니다.
-2. `openssl rand -hex 32`를 두 번 실행하여 서로 다른 값을 `POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`에 넣습니다.
+2. `openssl rand -hex 32`를 세 번 실행하여 서로 다른 값을 `POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`, `BATTLE_API_KEY`에 넣습니다.
    DB 비밀번호에 연결 문자열 구분자인 `;`를 넣지 않도록 hex 값을 권장합니다.
 3. 실행합니다.
 
@@ -62,6 +66,7 @@ dotnet restore ProjectC.sln
 export ASPNETCORE_ENVIRONMENT=Development
 export ConnectionStrings__GameDatabase='Host=localhost;Port=5432;Database=projectc_analytics;Username=projectc;Password=<로컬 DB 비밀번호>'
 export Jwt__SigningKey='<생성한 64자리 hex 키>'
+export Battle__ApiKey='<JWT 키와 다른 무작위 64자리 hex 키>'
 dotnet ef database update --project api/ProjectC.Api
 dotnet run --project api/ProjectC.Api --urls http://localhost:8080
 ```
@@ -91,12 +96,13 @@ dotnet ef migrations script --idempotent --project api/ProjectC.Api --output mig
 
 ## API 계약
 
-`POST /api/auth/guest`만 공개됩니다. 나머지는 `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
+`POST /api/auth/guest`는 공개됩니다. refresh/revoke는 본문의 Refresh Token으로 인증하고,
+내부 Battle API는 서버 키를 사용합니다. 나머지 사용자 API는 `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
 JSON에 알 수 없는 필드를 보내면 400으로 거절합니다. PlayerId는 토큰의 검증된 `sub`에서만 가져옵니다.
 
 | API | 요청/응답 |
 | --- | --- |
-| POST /api/auth/guest | `{ "displayName": "Guest" }` → accessToken, tokenType, expiresAt, user |
+| POST /api/auth/guest | `{ "displayName": "Guest" }` → accessToken, tokenType, expiresAt, user, refreshToken, refreshExpiresAt |
 | GET /api/users/me | playerId(UUID), displayName, createdAt(UTC) |
 | GET /api/decks | 현재 사용자 덱 배열 |
 | POST /api/decks | name, cards → 201과 저장한 덱 |
@@ -107,8 +113,10 @@ JSON에 알 수 없는 필드를 보내면 400으로 거절합니다. PlayerId�
 게스트 생성 요청에 표시 이름을 생략하면 `Guest`를 사용합니다(본문 `{}` 필요).
 표시 이름은 공백 정리 후 1~32자, 덱 이름은 1~64자입니다. UUID는 서버에서 생성합니다.
 토큰은 기본 24시간 유효하며 서명·알고리즘·발급자·대상·만료·실제 계정 존재를 검증합니다.
-이번 단계에는 갱신/게스트 복구 기능이 없습니다. 토큰 소실·만료 시 기존 계정으로 다시 로그인할 수 없으므로
-장기 계정 운영 전 계정 연결 또는 복구/갱신 설계가 필요합니다. 게스트 생성은 IP당 분당 10회로 제한합니다(429).
+게스트 발급 시 Refresh Token도 반환하며 회전·폐기·재사용 탐지를 지원합니다.
+기존 계정은 유효한 JWT로 `POST /api/auth/session`을 호출해 갱신 세션을 발급받습니다.
+이미 만료된 JWT만 있고 복구 수단이 없으면 본인 확인이 불가능합니다. 기존 데이터는 삭제하지 않습니다.
+게스트 생성은 IP당 분당 10회로 제한합니다(429).
 
 덱 요청 예시(정확히 30장, 각 3장):
 
@@ -153,31 +161,30 @@ python3 scripts/export-card-catalog.py /path/to/ProjectC --ref <검증한 커밋
 ```
 
 변경된 `Catalog/cards.json`을 검토하고 테스트한 후 API를 재배포합니다.
-각 덱에는 검증 당시 `catalogVersion`이 저장됩니다. 배틀 시작 시 최신 카탈로그로 다시 검증하는 작업은
-향후 Battle Server 연동 단계에서 수행해야 합니다. 다른 카탈로그 공급자는 `ICardCatalog`로 교체할 수 있습니다.
+각 덱에는 검증 당시 `catalogVersion`이 저장됩니다. Battle 전용 덱 검증 API는 시작 전 버전과 구성을 재검증하고
+불변 스냅샷을 발급합니다. 다른 카탈로그 공급자는 `ICardCatalog`로 교체할 수 있습니다.
 
 ## 랭크와 매치 저장 설계
 
-가입 시 랭크 행을 함께 생성합니다. 기본 MMR 1000, Tier `Unranked`, Division/RP/연승 0,
-PromotionStatus `None`은 초기 저장 값이며 랭크 계산 알고리즘은 없습니다.
+가입 시 기본 MMR 1000, Bronze 5 / 0RP의 랭크 행을 함께 생성합니다.
+별도 RankCalculator가 Elo K=32, 동급 RP ±20, Silver 이하 패배 보호 및 5전 3선승 승격전을 처리합니다.
 승격전 기록은 사용자·SeriesId·GameNumber 키와 Won 값으로 시리즈별 승패를 보존합니다.
 
 매치는 MatchId(UUID) PK로 재전송에 의한 중복 저장을 DB에서 차단합니다.
 참가자와 당시 덱 ID/이름/카탈로그 버전/카드 수량 스냅샷을 별도 저장하므로 덱 수정·삭제 뒤에도 이력이 유지됩니다.
 승자가 없는 종료는 WinnerPlayerId=null로 표현하며, 승자는 참가자에 대한 복합 FK로 제한합니다.
-향후 writer에서는 트랜잭션 안에서 매치와 참가자를 먼저 저장하고 승자 FK를 설정한 후 커밋합니다.
-참가자 수·종료 사유 enum·승패 일관성 등은 향후 인증된 서버 입력 계층에서 검증해야 합니다.
-동일 MatchId 재전송은 향후 서버 전용 API에서 기존 결과와 비교 후 성공/충돌로 처리할 예정이며,
-현재 구현 범위는 고유 키와 저장 모델까지입니다.
+Battle 전용 결과 API는 참가자·종료 사유·승패 일관성을 검증하고 매치와 랭크를 한 트랜잭션으로 저장합니다.
+같은 MatchId의 동일 요청은 저장된 응답을 반환하고, 다른 결과는 409로 거부합니다.
+MatchId 및 참가자 잠금으로 여러 API 인스턴스의 동시 제출을 직렬화합니다.
 
 실시간 진행과 승패 판정은 Battle Server의 책임입니다. Website API에는 클라이언트가 매치 결과나 랭크를 쓰는 경로가 없습니다.
-C++ 서버 인증과 결과 수신은 별도의 서버 권한·서비스 인증을 추가할 확장 지점이며 기존 서버 프로토콜은 변경하지 않았습니다.
+서버 인증은 사용자 JWT와 분리된 `X-Battle-Api-Key`로 처리합니다. C++ 저장소의 호출 구현은 별도 적용해야 합니다.
 
 ## 설정과 운영
 
 공통 설정은 `appsettings.json`, 개발 로깅은 `appsettings.Development.json`, 운영 로깅은 `appsettings.Production.json`입니다.
 DB 연결 문자열과 JWT 키는 설정 파일에 포함하지 않습니다. `.env`, 빌드 산출물, 로컬 설정 파일은 Git/Docker 빌드에서 제외됩니다.
-운영에는 `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__GameDatabase`, `Jwt__SigningKey`를
+운영에는 `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__GameDatabase`, `Jwt__SigningKey`, `Battle__ApiKey`를
 배포 환경의 비밀 저장소로 주입합니다. API 앞단에서 HTTPS를 종료하도록 구성하고,
 프록시 IP 전달·생성 제한 정책·허용 호스트는 실제 배포 구조에 맞게 설정합니다.
 
