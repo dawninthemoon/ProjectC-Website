@@ -1,13 +1,16 @@
 import { Controller, Get } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service.js';
 
-@Controller('api')
+@Controller()
 export class AppController {
   constructor(private readonly prisma: PrismaService) 
     {}
 
-  @Get('matches')
+  @Get('health')
+  health() { return { status: 'ok' }; }
+
+  @Get('api/matches')
   async getMatches() {
-    return this.prisma.match.findMany();
+    return this.prisma.legacyMatch.findMany();
   }
 }

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 import { AppController } from './app.controller.js';
 import { PrismaService } from './prisma/prisma.service.js';
@@ -8,13 +8,13 @@ describe('AppController', () => {
   let appController: AppController;
 
   const prismaMock = {
-    match: {
-      findMany: vi.fn(),
+    legacyMatch: {
+      findMany: jest.fn<() => Promise<unknown[]>>(),
     },
   };
 
   beforeEach(async () => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
@@ -40,16 +40,16 @@ describe('AppController', () => {
         },
       ];
 
-      prismaMock.match.findMany.mockResolvedValue(matches);
+      prismaMock.legacyMatch.findMany.mockResolvedValue(matches);
 
       const result = await appController.getMatches();
 
       expect(result).toEqual(matches);
-      expect(prismaMock.match.findMany).toHaveBeenCalledOnce();
+      expect(prismaMock.legacyMatch.findMany).toHaveBeenCalledTimes(1);
     });
 
     it('should return an empty array when no matches exist', async () => {
-      prismaMock.match.findMany.mockResolvedValue([]);
+      prismaMock.legacyMatch.findMany.mockResolvedValue([]);
 
       const result = await appController.getMatches();
 

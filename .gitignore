@@ -21,6 +21,7 @@ dist/
 build/
 coverage/
 .vite/
+.test-dist/
 *.tsbuildinfo
 
 # =========================

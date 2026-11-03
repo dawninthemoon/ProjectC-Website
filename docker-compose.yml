@@ -20,14 +20,15 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: api/ProjectC.Api/Dockerfile
-    command: ["--migrate"]
+      dockerfile: backend/Dockerfile
+      target: migrate
     environment: &api-environment
-      ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__GameDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-projectc_analytics};Username=${POSTGRES_USER:-projectc};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
-      Battle__ApiKey: ${BATTLE_API_KEY:?Set BATTLE_API_KEY in .env}
-      Refresh__LifetimeDays: ${REFRESH_LIFETIME_DAYS:-30}
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-projectc}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-projectc_analytics}?schema=public
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      BATTLE_API_KEY: ${BATTLE_API_KEY:?Set BATTLE_API_KEY in .env}
+      REFRESH_LIFETIME_DAYS: ${REFRESH_LIFETIME_DAYS:-30}
+      PORT: "8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +36,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: api/ProjectC.Api/Dockerfile
+      dockerfile: backend/Dockerfile
+      target: runtime
     environment: *api-environment
     ports:
       - "127.0.0.1:8080:8080"

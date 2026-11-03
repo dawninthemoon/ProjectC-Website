@@ -1,6 +1,7 @@
 # Battle Server 연동 계약 및 계정 지속성
 
-구현 위치: `api/ProjectC.Api`. 기존 NestJS `backend/`는 변경하지 않는다.
+운영 구현: `backend/` (TypeScript + NestJS + Prisma). C# 구현은 참고용으로 보존한다.
+DB 인수·기능 차이·테스트 대응표는 [스택 전환 문서](stack-migration.md)를 참조한다.
 이 문서는 C++ `dawninthemoon/ProjectC` Battle Server 구현자가 그대로 사용하는 HTTP 계약이다.
 실시간 전투와 승패 판정은 Battle Server가 담당한다. 모든 경기 제출은 랭크 경기이며,
 `Aborted`만 랭크에 반영하지 않는다. PostgreSQL `game` 스키마의 기존 모델을 확장한다.
@@ -10,7 +11,7 @@
 - 운영 Base URL: 배포한 Website API의 **HTTPS** 주소. WebSocket Battle Server 주소와 구분한다.
 - JSON 요청은 `Content-Type: application/json`. 필드 이름은 camelCase, GUID는 UUID 문자열,
   시간은 ISO 8601 UTC. 알 수 없는 요청 필드는 400으로 거부한다.
-- 내부 API 3개는 모두 `X-Battle-Api-Key: <Battle__ApiKey>`가 필수다.
+- 내부 API 3개는 모두 `X-Battle-Api-Key: <BATTLE_API_KEY>`가 필수다.
   사용자 JWT만으로 내부 API를 호출할 수 없으며, 서버 키만으로 개인 사용자 API를 호출할 수도 없다.
 - 사용자 API는 `Authorization: Bearer <accessToken>`을 사용한다.
 - Refresh Token은 인증용 비밀값이다. Battle Server에 전달하지 않는다.
@@ -232,7 +233,7 @@ Refresh Token은 OS 보안 저장소에 보관하고 브라우저라면 장기 �
 
 ## 랭크 기본 정책
 
-정확한 수식은 기존 구현이 없어 아래 기본값을 `Ranking/RankCalculator.cs`에 분리했다.
+정확한 수식은 기존 구현이 없어 아래 기본값을 `backend/src/ranking/rank-calculator.ts`에 분리했다.
 
 - 신규 계정: Bronze 5 / 0RP, MMR 1000. 기존 `Unranked`는 첫 랭크 반영 시 Bronze 5로 초기화한다.
 - 티어 순서 Bronze → Silver → Gold → Platinum, 각 티어 Division 5 → 1, RP는 0..99.
@@ -272,42 +273,39 @@ Refresh Token은 OS 보안 저장소에 보관하고 브라우저라면 장기 �
 
 | API 환경 변수 | 필수/기본값 | 의미 |
 |---|---|---|
-| `ASPNETCORE_ENVIRONMENT` | 운영 `Production` | 개발 예외 페이지 사용 금지 |
-| `ConnectionStrings__GameDatabase` | 필수 | 기존 PostgreSQL 접속 문자열 |
-| `Jwt__SigningKey` | 필수, 최소 32바이트 | 기존 키 유지, 변경하면 기존 JWT 무효 |
-| `Jwt__Issuer` | `ProjectC.Website` | JWT 발급자 |
-| `Jwt__Audience` | `ProjectC.Client` | JWT audience |
-| `Jwt__LifetimeMinutes` | `1440`, 1..10080 | Access Token 수명 |
-| `Battle__ApiKey` | 신규 필수, 최소 32바이트 | API와 Battle Server에만 동일 비밀 주입 |
-| `Refresh__LifetimeDays` | `30`, 1..365 | 회전된 Refresh Token 수명 |
-| `RateLimits__GuestPermitLimit` | `10` | IP당 게스트 생성/분, 테스트는 별도 상향 |
-| `Catalog__Path` | `Catalog/cards.json` | 카탈로그 파일 |
-| `PROJECTC_TEST_DATABASE` | 테스트에만 필수 | game 스키마를 초기화해도 되는 별도 DB |
+| `NODE_ENV` | 운영 `production` | NestJS 운영 모드 |
+| `DATABASE_URL` | 필수 | PostgreSQL URL. Neon 앱은 pooled URL과 TLS 옵션 사용 |
+| `DIRECT_URL` | migration/조회 시 권장 | Neon direct URL, 같은 branch/DB를 지정 |
+| `JWT_SIGNING_KEY` | 필수, 최소 32바이트 | 기존 서명키 유지 |
+| `JWT_ISSUER` | `ProjectC.Website` | JWT 발급자 |
+| `JWT_AUDIENCE` | `ProjectC.Client` | JWT audience |
+| `JWT_LIFETIME_MINUTES` | `1440`, 1..10080 | Access Token 수명 |
+| `BATTLE_API_KEY` | 필수, 최소 32바이트 | API와 Battle Server에만 동일 비밀 주입 |
+| `REFRESH_LIFETIME_DAYS` | `30`, 1..365 | 회전된 Refresh Token 수명 |
+| `GUEST_PERMIT_LIMIT` | `10` | IP당 게스트 생성/분 |
+| `CATALOG_PATH` | `catalog/cards.json` | backend 작업 디렉터리 기준 파일 |
+| `PORT` | `8080` | Render 제공 값을 읽고 0.0.0.0 바인딩 |
+| `PROJECTC_TEST_DATABASE` | 통합 테스트 시 필수 | 이름에 test가 포함된 전용 로컬 PostgreSQL URL |
 
-Docker Compose `.env`는 `JWT_SIGNING_KEY`, `BATTLE_API_KEY`, `REFRESH_LIFETIME_DAYS`를 위 API 변수로 연결한다.
-`POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`는 기존 DB 설정을 유지한다.
-Battle Server 쪽에는 API HTTPS Base URL과 같은 서버 비밀키를 해당 저장소의 환경 설정 이름에 맞춰 주입한다.
-이 저장소는 C++의 환경 변수 이름이나 Render 서비스를 자동 변경하지 않는다.
+기존 `Jwt__SigningKey`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__LifetimeMinutes`, `Battle__ApiKey`,
+`Refresh__LifetimeDays`, `RateLimits__GuestPermitLimit`, `Catalog__Path`도 별칭으로 지원한다.
+새 변수 이름을 우선 사용하며 `ConnectionStrings__GameDatabase` 대신 PostgreSQL URL을 사용한다.
+
+Docker Compose 루트 .env에는 POSTGRES_USER, POSTGRES_DB, POSTGRES_PASSWORD 및 두 인증 키를 설정한다.
+비밀번호는 URL에 안전한 무작위 hex 값을 권장한다. npm 실행은 backend/.env.example을 참고한다.
+Battle Server에는 API HTTPS Base URL과 동일한 서버 키를 해당 저장소의 환경 변수 이름에 맞춰 주입한다.
+이 저장소는 C++ 코드나 Render 서비스를 자동 변경하지 않는다.
 
 수동 작업:
 
-1. DB 백업·복원 절차를 확인하고 추가 migration `20261103103036_BattlePersistence`의 SQL을 검토한다.
-2. API와 Battle Server 비밀 저장소에 별도의 무작위 Battle 키를 설정한다.
-3. 운영 변경 전에 staging에서 검증한다. 다음 명령은 SQL 생성만 수행한다:
-
-   ```sh
-   dotnet tool restore
-   dotnet ef migrations script --idempotent --project api/ProjectC.Api --output migration.sql
-   ```
-
-4. 승인된 작업자가 `dotnet ef database update --project api/ProjectC.Api` 또는 컨테이너 `--migrate`를
-   단일 작업으로 실행하고 API를 배포한다. 일반 API 시작은 migration을 실행하지 않는다.
-5. HTTPS 종단 및 내부 HTTP 홉의 접근 제어를 구성한다. 앱은 Render 앞단의 TLS 종료를 전제로 하며
-   무조건 X-Forwarded-Proto를 신뢰하거나 API 내부에서 HTTPS 여부를 추정하지 않는다.
-   클라이언트 IP 전달이 필요하면 신뢰할 프록시만 지정한다. 현재 limiter는 연결 IP를 사용하므로
-   프록시 환경에서 여러 사용자가 제한을 공유할 수 있다.
-6. Battle Server에 위 호출 순서와 결과 재전송 큐를 구현한 뒤 연결한다.
-7. 게스트 클라이언트를 갱신해 만료 전 session 발급 및 안전한 Refresh 저장을 적용한다.
+1. `npm run db:inspect`로 DB 구조를 읽기 전용 확인하고 백업한다.
+2. [DB 상태별 migration/baseline 절차](stack-migration.md)를 따른다.
+   기존 EF game 테이블이 있는 DB에 CREATE TABLE migration을 그대로 실행하지 않는다.
+3. staging/Neon branch에서 검증 후 승인된 작업자가 `npm run prisma:migrate`를 실행한다.
+   일반 서버 시작은 migration을 실행하지 않는다. 운영 DB reset/db push는 사용하지 않는다.
+4. Render에 backend/Dockerfile, HTTPS, 환경 변수와 /health를 설정하고 수동 배포한다.
+5. Battle Server의 인증·덱 검증·결과 제출·재전송 큐를 연결한다.
+6. 게스트 클라이언트에 session 발급과 안전한 Refresh 저장을 적용한다.
 
 서버 키 교체는 양쪽 설정을 맞춘 유지보수로 수행한다. 현재 동시 복수 키 허용은 없다.
 매치 hash/응답/승격전 이력은 멱등성·감사를 위해 보존한다. 스냅샷은 지연 제출이 필요 없는 시점까지
@@ -316,10 +314,19 @@ Battle Server 쪽에는 API HTTPS Base URL과 같은 서버 비밀키를 해당 
 
 ## 검증
 
-전용 PostgreSQL 17 DB로 `PROJECTC_TEST_DATABASE`를 설정하고 `dotnet test ProjectC.sln`을 실행한다.
-테스트는 해당 DB의 game 스키마를 삭제 후 실제 migration으로 생성한다. 운영·개발 DB를 지정하지 않는다.
-기존 테스트와 함께 JWT/서버 인증, 소유권, 동시 멱등 제출·충돌, DB 실패 롤백, 스냅샷 보존,
-Refresh 회전·만료·재사용·동시 갱신, 랭크 계산·승급·강등·승격전 저장을 검증한다.
+전용 PostgreSQL 17 DB URL을 `PROJECTC_TEST_DATABASE`로 설정한다. 작업 디렉터리는 backend다.
 
-구현 참고: [ASP.NET Core 인증 스킴 분리](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/limitingidentitybyscheme?view=aspnetcore-10.0),
-[EF Core 명시적 트랜잭션](https://learn.microsoft.com/en-us/ef/core/saving/transactions).
+```sh
+npm ci
+npm run prisma:generate
+npm run build
+npm test
+npm run test:e2e
+```
+
+테스트는 실제 Prisma migration을 적용하며 스키마를 초기화하지 않는다.
+DB 이름에 test가 없거나 허용한 로컬 호스트가 아니면 통합 테스트를 거부한다.
+기존 27개 검증 항목의 Jest 대응표와 추가 호환성 검증은 [스택 전환 문서](stack-migration.md)에 있다.
+
+구현 참고: [Prisma 다중 스키마](https://docs.prisma.io/docs/orm/v7/prisma-schema/data-model/multi-schema),
+[Render Web Services](https://render.com/docs/web-services).

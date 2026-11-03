@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,11 +5,146 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas = ["public", "game"]
 }
 
-model Match {
+model LegacyMatch {
   id        String   @id @default(uuid())
   winnerId  String
   loserId   String
   createdAt DateTime @default(now())
+  @@map("Match")
+  @@schema("public")
+}
+
+model Player {
+  id String @id(map: "PK_Players") @default(uuid()) @map("Id") @db.Uuid
+  displayName String @map("DisplayName") @db.VarChar(32)
+  createdAt DateTime @map("CreatedAt") @db.Timestamptz(6)
+  rank Rank?
+  decks Deck[]
+  refreshTokens RefreshToken[]
+  snapshots BattleDeckSnapshot[]
+  participants MatchParticipant[]
+  @@map("Players")
+  @@schema("game")
+}
+
+model RefreshToken {
+  tokenHash String @id(map: "PK_RefreshSessions") @map("TokenHash") @db.VarChar(64)
+  playerId String @map("PlayerId") @db.Uuid
+  familyId String @map("FamilyId") @db.Uuid
+  expiresAt DateTime @map("ExpiresAt") @db.Timestamptz(6)
+  revokedAt DateTime? @map("RevokedAt") @db.Timestamptz(6)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_RefreshSessions_Players_PlayerId")
+  @@index([familyId], map: "IX_RefreshSessions_FamilyId")
+  @@index([expiresAt], map: "IX_RefreshSessions_ExpiresAt")
+  @@index([playerId], map: "IX_RefreshSessions_PlayerId")
+  @@map("RefreshSessions")
+  @@schema("game")
+}
+
+model Deck {
+  id String @id(map: "PK_Decks") @default(uuid()) @map("Id") @db.Uuid
+  playerId String @map("PlayerId") @db.Uuid
+  name String @map("Name") @db.VarChar(64)
+  catalogVersion String @map("CatalogVersion") @db.VarChar(128)
+  createdAt DateTime @map("CreatedAt") @db.Timestamptz(6)
+  updatedAt DateTime @map("UpdatedAt") @db.Timestamptz(6)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Decks_Players_PlayerId")
+  cards DeckCard[]
+  @@index([playerId], map: "IX_Decks_PlayerId")
+  @@map("Decks")
+  @@schema("game")
+}
+
+model DeckCard {
+  deckId String @map("DeckId") @db.Uuid
+  cardId Int @map("CardId")
+  quantity Int @map("Quantity")
+  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_DeckCard_Decks_DeckId")
+  @@id([deckId, cardId], map: "PK_DeckCard")
+  @@map("DeckCard")
+  @@schema("game")
+}
+
+model Rank {
+  playerId String @id(map: "PK_Ranks") @map("PlayerId") @db.Uuid
+  mmr Int @map("Mmr")
+  tier String @map("Tier") @db.VarChar(32)
+  division Int @map("Division")
+  rp Int @map("Rp")
+  winStreak Int @map("WinStreak")
+  promotionStatus String @map("PromotionStatus") @db.VarChar(32)
+  activePromotionSeriesId String? @map("ActivePromotionSeriesId") @db.Uuid
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Ranks_Players_PlayerId")
+  promotionGames PromotionGame[]
+  @@map("Ranks")
+  @@schema("game")
+}
+
+model PromotionGame {
+  playerId String @map("PlayerId") @db.Uuid
+  seriesId String @map("SeriesId") @db.Uuid
+  gameNumber Int @map("GameNumber")
+  won Boolean @map("Won")
+  rank Rank @relation(fields: [playerId], references: [playerId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PromotionGame_Ranks_PlayerId")
+  @@id([playerId, seriesId, gameNumber], map: "PK_PromotionGame")
+  @@map("PromotionGame")
+  @@schema("game")
+}
+
+model BattleDeckSnapshot {
+  id String @id(map: "PK_BattleDeckSnapshots") @default(uuid()) @map("Id") @db.Uuid
+  playerId String @map("PlayerId") @db.Uuid
+  deckId String @map("DeckId") @db.Uuid
+  deckName String @map("DeckName") @db.VarChar(64)
+  catalogVersion String @map("CatalogVersion") @db.VarChar(128)
+  cardsJson String @map("CardsJson")
+  createdAt DateTime @map("CreatedAt") @db.Timestamptz(6)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_BattleDeckSnapshots_Players_PlayerId")
+  @@index([playerId], map: "IX_BattleDeckSnapshots_PlayerId")
+  @@map("BattleDeckSnapshots")
+  @@schema("game")
+}
+
+model Match {
+  matchId String @id(map: "PK_Matches") @map("MatchId") @db.Uuid
+  winnerPlayerId String? @map("WinnerPlayerId") @db.Uuid
+  endedAt DateTime @map("EndedAt") @db.Timestamptz(6)
+  endReason String @map("EndReason") @db.VarChar(64)
+  submissionHash String? @map("SubmissionHash")
+  rankChangesJson String? @map("RankChangesJson")
+  participants MatchParticipant[] @relation("Participants")
+  winner MatchParticipant? @relation("Winner", fields: [matchId, winnerPlayerId], references: [matchId, playerId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Matches_MatchParticipant_MatchId_WinnerPlayerId")
+  @@index([matchId, winnerPlayerId], map: "IX_Matches_MatchId_WinnerPlayerId")
+  @@map("Matches")
+  @@schema("game")
+}
+
+model MatchParticipant {
+  matchId String @map("MatchId") @db.Uuid
+  playerId String @map("PlayerId") @db.Uuid
+  deckId String @map("DeckId") @db.Uuid
+  deckName String @map("DeckName") @db.VarChar(64)
+  catalogVersion String @map("CatalogVersion") @db.VarChar(128)
+  match Match @relation("Participants", fields: [matchId], references: [matchId], onDelete: Cascade, onUpdate: NoAction, map: "FK_MatchParticipant_Matches_MatchId")
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_MatchParticipant_Players_PlayerId")
+  wonMatches Match[] @relation("Winner")
+  cards MatchDeckSnapshot[]
+  @@id([matchId, playerId], map: "PK_MatchParticipant")
+  @@index([playerId], map: "IX_MatchParticipant_PlayerId")
+  @@map("MatchParticipant")
+  @@schema("game")
+}
+
+model MatchDeckSnapshot {
+  matchId String @map("MatchId") @db.Uuid
+  playerId String @map("PlayerId") @db.Uuid
+  cardId Int @map("CardId")
+  quantity Int @map("Quantity")
+  participant MatchParticipant @relation(fields: [matchId, playerId], references: [matchId, playerId], onDelete: Cascade, onUpdate: NoAction, map: "FK_MatchDeckCard_MatchParticipant_MatchId_PlayerId")
+  @@id([matchId, playerId, cardId], map: "PK_MatchDeckCard")
+  @@map("MatchDeckCard")
+  @@schema("game")
 }

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: projectc-website-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SIGNING_KEY
+        sync: false
+      - key: BATTLE_API_KEY
+        sync: false
+      - key: JWT_LIFETIME_MINUTES
+        value: "1440"
+      - key: REFRESH_LIFETIME_DAYS
+        value: "30"

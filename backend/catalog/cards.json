@@ -1,0 +1,126 @@
+{
+  "sourceRepository": "https://github.com/dawninthemoon/ProjectC",
+  "sourceCommit": "06fc300ef4275b4acdb3ca440b3adf121c5aa765",
+  "sourcePath": "ProjectC.Server/Data/HyakkiYagyo/Cards.json",
+  "version": "hyakki-2026-11-02-v1-fc4b30ed6ac5",
+  "requiredCardCount": 30,
+  "maximumCopiesPerCard": 3,
+  "cards": [
+    {
+      "cardId": 1001,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1002,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1003,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1004,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1005,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1006,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1007,
+      "mainDeckEligible": false
+    },
+    {
+      "cardId": 1008,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1101,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1102,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1103,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 1104,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 2001,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 2002,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 2003,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 2004,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 2005,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3001,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3002,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3003,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3004,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3005,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 3006,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4001,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4002,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4003,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4004,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4005,
+      "mainDeckEligible": true
+    },
+    {
+      "cardId": 4006,
+      "mainDeckEligible": true
+    }
+  ]
+}

@@ -4,5 +4,11 @@
 **/obj
 .env
 .env.*
+**/.env
+**/.env.*
 **/appsettings.*.local.json
-backend
+api
+**/dist
+**/.test-dist
+**/generated
+**/coverage

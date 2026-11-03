@@ -1,20 +1,20 @@
 services:
   dev:
-    image: mcr.microsoft.com/dotnet/sdk:10.0
-    working_dir: /workspace
+    image: node:24-bookworm
+    working_dir: /workspace/backend
     command: sleep infinity
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://0.0.0.0:8080
-      ConnectionStrings__GameDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-projectc_analytics};Username=${POSTGRES_USER:-projectc};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
-      Battle__ApiKey: ${BATTLE_API_KEY:?Set BATTLE_API_KEY in .env}
-      Refresh__LifetimeDays: ${REFRESH_LIFETIME_DAYS:-30}
+      NODE_ENV: development
+      PORT: "8080"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-projectc}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-projectc_analytics}?schema=public
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      BATTLE_API_KEY: ${BATTLE_API_KEY:?Set BATTLE_API_KEY in .env}
+      REFRESH_LIFETIME_DAYS: ${REFRESH_LIFETIME_DAYS:-30}
     volumes:
       - .:/workspace
-      - nuget_cache:/root/.nuget/packages
+      - backend_node_modules:/workspace/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
 volumes:
-  nuget_cache:
+  backend_node_modules:

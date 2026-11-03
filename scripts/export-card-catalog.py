@@ -34,6 +34,6 @@ output = {
 ids = [c["cardId"] for c in output["cards"]]
 if not ids or len(ids) != len(set(ids)):
     raise ValueError("Empty catalog or duplicate CardId")
-target = Path(__file__).resolve().parents[1] / "api/ProjectC.Api/Catalog/cards.json"
+target = Path(__file__).resolve().parents[1] / "backend/catalog/cards.json"
 target.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
 print(f"Exported {len(ids)} card IDs from {commit} to {target}")

@@ -1,11 +1,11 @@
 {
-  "name": "ProjectC ASP.NET Core Development",
+  "name": "ProjectC NestJS Development",
   "dockerComposeFile": ["../docker-compose.yml", "../docker-compose.dev.yml"],
   "service": "dev",
   "runServices": ["postgres", "dev"],
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/workspace/backend",
   "shutdownAction": "stopCompose",
   "forwardPorts": [8080],
-  "postCreateCommand": "dotnet tool restore && dotnet restore ProjectC.sln",
-  "customizations": { "vscode": { "extensions": ["ms-dotnettools.csdevkit"] } }
+  "postCreateCommand": "npm ci && npm run prisma:generate",
+  "customizations": { "vscode": { "extensions": ["Prisma.prisma", "dbaeumer.vscode-eslint"] } }
 }

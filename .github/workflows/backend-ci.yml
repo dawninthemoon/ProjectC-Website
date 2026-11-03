@@ -22,19 +22,20 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: projectc
+          POSTGRES_USER: projectc_test
           POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: projectc_analytics
+          POSTGRES_DB: projectc_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U projectc -d projectc_analytics"
+          --health-cmd "pg_isready -U projectc_test -d projectc_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://projectc:test_password@localhost:5432/projectc_analytics?schema=public
+      DATABASE_URL: postgresql://projectc_test:test_password@localhost:5432/projectc_test?schema=public
+      PROJECTC_TEST_DATABASE: postgresql://projectc_test:test_password@localhost:5432/projectc_test?schema=public
 
     steps:
       - name: Checkout repository
@@ -51,16 +52,39 @@ jobs:
         run: npm ci
 
       - name: Validate Prisma schema
-        run: npx prisma validate
+        run: npm run prisma:validate
 
       - name: Apply database migrations
-        run: npx prisma migrate deploy
+        run: npm run prisma:migrate
 
       - name: Generate Prisma Client
-        run: npx prisma generate
+        run: npm run prisma:generate
 
       - name: Build NestJS
         run: npm run build
 
+      - name: Lint
+        run: npm run lint
+
       - name: Run unit tests
-        run: npx vitest run
+        run: npm test
+
+      - name: PostgreSQL integration tests
+        run: npm run test:e2e
+
+      - name: Build production Docker image
+        working-directory: .
+        run: docker build --target runtime -f backend/Dockerfile -t projectc-api:ci .
+
+      - name: Run production Docker smoke test
+        env:
+          JWT_SIGNING_KEY: ci-docker-only-jwt-signing-key-123456789012345
+          BATTLE_API_KEY: ci-docker-only-battle-api-key-123456789012345
+          API_BASE_URL: http://127.0.0.1:18080
+        run: |
+          docker run --detach --name projectc-api-ci --network host --env DATABASE_URL --env JWT_SIGNING_KEY --env BATTLE_API_KEY --env PORT=18080 projectc-api:ci
+          node scripts/docker-smoke.mjs
+
+      - name: Stop smoke test container
+        if: always()
+        run: docker rm --force projectc-api-ci || true
