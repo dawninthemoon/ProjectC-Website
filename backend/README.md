@@ -3,6 +3,7 @@
 NestJS 12, TypeScript, Prisma ORM 7.10.1, PostgreSQL 17, Jest 30, Node 24를 사용합니다.
 운영 HTTP 계약은 [Battle Server API](../docs/battle-server-api.md), 기존 EF DB 인수와
 차이는 [스택 전환 문서](../docs/stack-migration.md)에 있습니다.
+Neon 프로젝트 연결과 Render 입력값은 [DEPLOYMENT.md](../DEPLOYMENT.md)를 참조하세요.
 
 ## 개발
 
@@ -14,6 +15,7 @@ npm ci
 npm run prisma:generate
 npm run prisma:validate
 npm run db:inspect
+npm run db:check
 # DB 상태를 확인하고 migration/baseline 절차를 검토한 뒤:
 npm run prisma:migrate
 npm run start:dev

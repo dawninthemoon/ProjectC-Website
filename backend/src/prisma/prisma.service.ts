@@ -22,9 +22,19 @@ export class PrismaService
 
     const adapter = new PrismaPg({
       connectionString,
+      // Bound connection establishment, including Neon compute wake-up.
+      connectionTimeoutMillis: 10000,
     });
 
     super({ adapter });
+  }
+
+  async checkConnection(): Promise<void> {
+    await this.$transaction(async tx => {
+      await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+      await tx.$executeRaw`SELECT set_config('statement_timeout', '5000', true)`;
+      await tx.$queryRaw`SELECT 1 AS ok`;
+    }, { maxWait: 3000, timeout: 10000 });
   }
 
   async onModuleDestroy(): Promise<void> {

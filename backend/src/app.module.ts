@@ -12,10 +12,11 @@ import { DecksController } from './decks/decks.controller.js';
 import { CatalogService } from './decks/catalog.service.js';
 import { RankCalculator } from './ranking/rank-calculator.js';
 import { RateLimits, GuestRateGuard, RefreshRateGuard } from './common/rate-limit.js';
+import { HealthController } from './health/health.controller.js';
 
 @Module({
   imports: [],
-  controllers: [AppController, AuthController, DecksController, BattleController],
+  controllers: [AppController, AuthController, DecksController, BattleController, HealthController],
   providers: [AppService, PrismaService, Settings, AuthService, BattleService, CatalogService, RankCalculator,
     BattleGuard, PlayerGuard, RateLimits, GuestRateGuard, RefreshRateGuard],
 })

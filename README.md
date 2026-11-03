@@ -7,6 +7,7 @@ Unity 계정·개인 덱·랭크와 C++ Battle Server의 영속 데이터를 제
 - [API 계약·JSON·인증·연동 순서](docs/battle-server-api.md)
 - [스택 전환 결과·DB 인수·Neon/Render 수동 배포](docs/stack-migration.md)
 - [NestJS 개발·테스트 명령](backend/README.md)
+- [Neon production 연결·Render 배포 절차](DEPLOYMENT.md)
 
 ```text
 backend/

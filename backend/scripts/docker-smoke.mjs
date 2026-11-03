@@ -19,6 +19,7 @@ for (let attempt = 0; ; attempt++) {
   catch (error) { if (attempt === 29) throw error; await new Promise(resolve => setTimeout(resolve, 500)); }
 }
 const catalogVersion = JSON.parse(readFileSync(new URL('../catalog/cards.json', import.meta.url), 'utf8')).version;
+assert.deepEqual(await call('/health/db', { server: true }), { status: 'ok', database: 'ok' });
 const cards = [1001, 1002, 1003, 1004, 1005, 1006, 1008, 1101, 2001, 2002].map(cardId => ({ cardId, quantity: 3 }));
 const players = [];
 for (let i = 0; i < 2; i++) {

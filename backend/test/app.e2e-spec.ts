@@ -65,6 +65,13 @@ describe('PostgreSQL 17 API integration: C# parity', () => {
     expect((await api().post('/api/auth/guest').send({}).expect(200)).body.user.displayName).toBe('Guest');
     await api().get('/health').expect(200, { status: 'ok' });
   });
+  it('DB health requires the server key and uses the application database', async () => {
+    await api().get('/health/db').expect(401);
+    const player = await seed();
+    await api().get('/health/db').auth(player.accessToken, { type: 'bearer' }).expect(401);
+    await api().get('/health/db').set('X-Battle-Api-Key', 'wrong').expect(401);
+    await api().get('/health/db').set('X-Battle-Api-Key', battleKey).expect(200, { status: 'ok', database: 'ok' });
+  });
   it('DeckCrudIsScopedToTokenOwner', async () => {
     const a = await seed(), b = await seed(), d = await deck(a.accessToken);
     expect((await api().get('/api/decks').auth(a.accessToken, { type: 'bearer' })).body.map((v: { id: string }) => v.id)).toContain(d.id);

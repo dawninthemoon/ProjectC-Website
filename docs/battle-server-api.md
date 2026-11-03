@@ -23,6 +23,13 @@ DB 인수·기능 차이·테스트 대응표는 [스택 전환 문서](stack-mi
 
 ## 신규 엔드포인트 목록
 
+배포 점검용 API: 기존 공개 `GET /health`는 200 `{ "status": "ok" }`로 유지한다.
+추가 `GET /health/db`는 `X-Battle-Api-Key`를 요구하며 앱의 DATABASE_URL에 읽기 전용 쿼리를 실행한다.
+성공 시 200 `{ "status": "ok", "database": "ok" }`, DB 장애·타임아웃 시
+503 `{ "status": "unavailable", "database": "unavailable" }`, 키 누락·불일치 시 401이다.
+DB 세부 오류나 비밀값은 반환하지 않는다. 마이그레이션 상태는 `npm run prisma:status`,
+테이블 존재 여부는 `npm run db:check`로 별도 확인한다. 전체 절차는 [DEPLOYMENT.md](../DEPLOYMENT.md)를 참조한다.
+
 | Method | 경로 | 인증 | 성공 |
 |---|---|---|---|
 | POST | `/api/internal/battle/players/verify` | 서버 키 + 본문의 사용자 JWT | 200 |

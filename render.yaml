@@ -6,6 +6,7 @@ services:
     dockerContext: .
     healthCheckPath: /health
     autoDeployTrigger: 'off'
+    # Render injects PORT. Keep the Docker CMD; migrations are a manual job.
     envVars:
       - key: NODE_ENV
         value: production
@@ -17,5 +18,9 @@ services:
         sync: false
       - key: JWT_LIFETIME_MINUTES
         value: "1440"
+      - key: JWT_ISSUER
+        value: ProjectC.Website
+      - key: JWT_AUDIENCE
+        value: ProjectC.Client
       - key: REFRESH_LIFETIME_DAYS
         value: "30"

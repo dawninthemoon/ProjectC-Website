@@ -63,6 +63,9 @@ jobs:
       - name: Build NestJS
         run: npm run build
 
+      - name: Check application DB connection and tables (read-only)
+        run: npm run db:check
+
       - name: Lint
         run: npm run lint
 
